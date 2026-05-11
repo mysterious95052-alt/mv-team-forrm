@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import Application from '../models/Application.js';
+import { sendApplicationEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -29,7 +30,18 @@ router.post('/apply', validateApplication, async (req, res) => {
     const application = new Application(req.body);
     await application.save();
 
-    res.status(201).json({ message: 'Application submitted successfully', id: application._id });
+    let emailSent = false;
+    try {
+      emailSent = await sendApplicationEmail(application.toObject());
+    } catch (emailError) {
+      console.error('Error sending application email:', emailError);
+    }
+
+    res.status(201).json({
+      message: 'Application submitted successfully',
+      id: application._id,
+      emailSent,
+    });
   } catch (error) {
     console.error('Error saving application:', error);
     res.status(500).json({ error: 'Server error during submission' });
