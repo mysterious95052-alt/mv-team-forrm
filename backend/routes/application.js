@@ -1,5 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import Application from '../models/Application.js';
 import { sendApplicationEmail } from '../services/emailService.js';
 
@@ -27,20 +28,35 @@ router.post('/apply', validateApplication, async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const application = new Application(req.body);
-    await application.save();
-
     let emailSent = false;
     try {
-      emailSent = await sendApplicationEmail(application.toObject());
+      emailSent = await sendApplicationEmail(req.body);
     } catch (emailError) {
       console.error('Error sending application email:', emailError);
     }
 
+    let id = null;
+    let savedToDatabase = false;
+    if (mongoose.connection.readyState === 1) {
+      const application = new Application(req.body);
+      await application.save();
+      id = application._id;
+      savedToDatabase = true;
+    } else {
+      console.warn('MongoDB is not connected. Application was not saved to the database.');
+    }
+
+    if (!emailSent && !savedToDatabase) {
+      return res.status(500).json({
+        error: 'Application could not be submitted. Email and database are not available.',
+      });
+    }
+
     res.status(201).json({
       message: 'Application submitted successfully',
-      id: application._id,
+      id,
       emailSent,
+      savedToDatabase,
     });
   } catch (error) {
     console.error('Error saving application:', error);

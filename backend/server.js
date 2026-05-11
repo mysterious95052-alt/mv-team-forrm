@@ -32,9 +32,13 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/market-vision')
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Connection Error:', err));
+if (process.env.MONGODB_URI) {
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+} else {
+  console.warn('MONGODB_URI is not set. Applications will be emailed but not saved to MongoDB.');
+}
 
 // Routes
 app.use('/api/applications', applicationRoutes);
