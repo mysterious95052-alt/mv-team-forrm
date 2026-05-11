@@ -28,12 +28,7 @@ router.post('/apply', validateApplication, async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    let emailSent = false;
-    try {
-      emailSent = await sendApplicationEmail(req.body);
-    } catch (emailError) {
-      console.error('Error sending application email:', emailError);
-    }
+    const emailResult = await sendApplicationEmail(req.body);
 
     let id = null;
     let savedToDatabase = false;
@@ -46,16 +41,16 @@ router.post('/apply', validateApplication, async (req, res) => {
       console.warn('MongoDB is not connected. Application was not saved to the database.');
     }
 
-    if (!emailSent && !savedToDatabase) {
+    if (!emailResult.sent && !savedToDatabase) {
       return res.status(500).json({
-        error: 'Application could not be submitted. Email and database are not available.',
+        error: emailResult.error,
       });
     }
 
     res.status(201).json({
       message: 'Application submitted successfully',
       id,
-      emailSent,
+      emailSent: emailResult.sent,
       savedToDatabase,
     });
   } catch (error) {
@@ -68,6 +63,10 @@ router.post('/apply', validateApplication, async (req, res) => {
 router.get('/', async (req, res) => {
   // In a real app, you would add JWT middleware here
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'MongoDB is not configured.' });
+    }
+
     const applications = await Application.find().sort({ createdAt: -1 });
     res.json(applications);
   } catch (error) {

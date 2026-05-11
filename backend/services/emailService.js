@@ -112,21 +112,32 @@ export async function sendApplicationEmail(application) {
   const recipient = process.env.APPLICATION_RECIPIENT_EMAIL || process.env.SMTP_USER;
 
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !recipient) {
-    console.warn('Application email skipped: SMTP_USER, SMTP_PASS, or APPLICATION_RECIPIENT_EMAIL is missing.');
-    return false;
+    return {
+      sent: false,
+      error: 'Email is not configured. Set SMTP_USER, SMTP_PASS, and APPLICATION_RECIPIENT_EMAIL in Vercel.',
+    };
   }
 
   const transporter = createTransporter();
   const { html, text } = buildEmailContent(application);
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || `"Market Vision Form" <${process.env.SMTP_USER}>`,
-    to: recipient,
-    replyTo: application.emailAddress,
-    subject: `New Team Application - ${application.fullName}`,
-    text,
-    html,
-  });
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || `"Market Vision Form" <${process.env.SMTP_USER}>`,
+      to: recipient,
+      replyTo: application.emailAddress,
+      subject: `New Team Application - ${application.fullName}`,
+      text,
+      html,
+    });
 
-  return true;
+    return { sent: true, error: null };
+  } catch (error) {
+    console.error('Application email failed:', error);
+
+    return {
+      sent: false,
+      error: 'Email could not be sent. Check that SMTP_PASS is a valid 16-character Gmail App Password.',
+    };
+  }
 }
